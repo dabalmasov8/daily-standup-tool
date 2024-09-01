@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Standup Tool</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+        }
+        .left {
+            width: 45%;
+        }
+        .right {
+            width: 45%;
+        }
+        #progress-bar-container {
+            width: 100%;
+            background-color: #f3f3f3;
+            border: 1px solid #ccc;
+            height: 30px;
+            margin-bottom: 10px;
+        }
+        #progress-bar {
+            height: 100%;
+            background-color: #4caf50;
+            width: 0%;
+            text-align: center;
+            color: white;
+            line-height: 30px;
+        }
+        .participant {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        .dot {
+            height: 10px;
+            width: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-left: 5px;
+        }
+        .green {
+            background-color: green;
+        }
+        .red {
+            background-color: red;
+        }
+        .orange {
+            color: orange;
+        }
+        #timer {
+            margin-top: 10px;
+        }
+        #blockers-list {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Daily Standup Tool</h1>
+    <div class="container">
+        <div class="left">
+            <h2>Participants</h2>
+            <div id="participants-list"></div>
+            <h2>Questions</h2>
+            <div id="questions-list"></div>
+            <button onclick="startStandup()">Start Daily</button>
+            <button onclick="markCompleted()">Completed</button>
+            <button onclick="markHasBlockers()">Has Blockers</button>
+            <button onclick="markAbsent()">Absent</button>
+            <button onclick="copyBlockers()">Copy Blockers</button>
+            <div id="timer">Daily Timer: 00:00</div>
+        </div>
+        <div class="right">
+            <h2>Progress</h2>
+            <div id="progress-bar-container">
+                <div id="progress-bar">0%</div>
+            </div>
+            <h2>Blockers List</h2>
+            <div id="blockers-list"></div>
+        </div>
+    </div>
+
+    <script>
+        let standup_data = {};
+
+        function fetchData() {
+            fetch('/get_data')
+                .then(response => response.json())
+                .then(data => {
+                    standup_data = data;
+                    updateParticipants();
+                    updateQuestions();
+                    updateBlockers();
+                    updateProgressBar();
+                    updateTimer();
+                });
+        }
+
+        function updateParticipants() {
+            const participantsList = document.getElementById('participants-list');
+            participantsList.innerHTML = '';
+            standup_data.participants.forEach((participant, index) => {
+                let status = standup_data.statuses[index];
+                let statusClass = '';
+                if (status === 'completed') {
+                    statusClass = 'green';
+                } else if (status === 'blocker') {
+                    statusClass = 'red';
+                } else if (status === 'absent') {
+                    statusClass = 'orange';
+                }
+                participantsList.innerHTML += `
+                    <div class="participant">
+                        ${participant}
+                        <span class="dot ${statusClass}"></span>
+                    </div>
+                `;
+            });
+        }
+
+        function updateQuestions() {
+            const questionsList = document.getElementById('questions-list');
+            questionsList.innerHTML = standup_data.questions.join('<br>');
+        }
+
+        function updateProgressBar() {
+            let progress = (standup_data.current_index / standup_data.participants.length) * 100;
+            document.getElementById('progress-bar').style.width = progress + '%';
+            document.getElementById('progress-bar').textContent = Math.round(progress) + '%';
+        }
+
+        function updateBlockers() {
+            const blockersList = document.getElementById('blockers-list');
+            blockersList.innerHTML = standup_data.blockers.join('<br>');
+        }
+
+        function updateTimer() {
+            fetch('/get_duration')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('timer').textContent = 'Daily Timer: ' + data.duration;
+                });
+        }
+
+        function startStandup() {
+            fetch('/start_standup', { method: 'POST' })
+                .then(response => response.json())
+                .then(() => {
+                    fetchData();
+                });
+        }
+
+        function markCompleted() {
+            fetch('/mark_completed', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.end) {
+                        alert('Standup completed.');
+                        updateTimer();
+                    } else {
+                        fetchData();
+                    }
+                });
+        }
+
+        function markHasBlockers() {
+            fetch('/mark_has_blockers', { method: 'POST' })
+                .then(() => {
+                    fetchData();
+                });
+        }
+
+        function markAbsent() {
+            fetch('/mark_absent', { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.end) {
+                        alert('Standup completed.');
+                        updateTimer();
+                    } else {
+                        fetchData();
+                    }
+                });
+        }
+
+        function copyBlockers() {
+            fetch('/copy_blockers')
+                .then(response => response.json())
+                .then(data => {
+                    navigator.clipboard.writeText(data.blockers.join('\n'))
+                        .then(() => alert('Blockers list copied to clipboard'))
+                        .catch(err => alert('Failed to copy: ' + err));
+                });
+        }
+
+        // Initialize data on page load
+        fetchData();
+    </script>
+</body>
+</html>

@@ -65,6 +65,11 @@
         #blockers-list {
             margin-top: 10px;
         }
+        .editable {
+            border: 1px solid #ccc;
+            padding: 5px;
+            margin-bottom: 10px;
+        }
     </style>
 </head>
 <body>
@@ -72,9 +77,11 @@
     <div class="container">
         <div class="left">
             <h2>Participants</h2>
-            <div id="participants-list"></div>
+            <textarea id="participants-list" class="editable" rows="10"></textarea>
+            <button onclick="saveParticipants()">Save Participants</button>
             <h2>Questions</h2>
-            <div id="questions-list"></div>
+            <textarea id="questions-list" class="editable" rows="10"></textarea>
+            <button onclick="saveQuestions()">Save Questions</button>
             <button onclick="startStandup()">Start Daily</button>
             <button onclick="markCompleted()">Completed</button>
             <button onclick="markHasBlockers()">Has Blockers</button>
@@ -110,29 +117,12 @@
 
         function updateParticipants() {
             const participantsList = document.getElementById('participants-list');
-            participantsList.innerHTML = '';
-            standup_data.participants.forEach((participant, index) => {
-                let status = standup_data.statuses[index];
-                let statusClass = '';
-                if (status === 'completed') {
-                    statusClass = 'green';
-                } else if (status === 'blocker') {
-                    statusClass = 'red';
-                } else if (status === 'absent') {
-                    statusClass = 'orange';
-                }
-                participantsList.innerHTML += `
-                    <div class="participant">
-                        ${participant}
-                        <span class="dot ${statusClass}"></span>
-                    </div>
-                `;
-            });
+            participantsList.value = standup_data.participants.join('\n');
         }
 
         function updateQuestions() {
             const questionsList = document.getElementById('questions-list');
-            questionsList.innerHTML = standup_data.questions.join('<br>');
+            questionsList.value = standup_data.questions.join('\n');
         }
 
         function updateProgressBar() {
@@ -167,7 +157,7 @@
                 .then(response => response.json())
                 .then(data => {
                     if (data.end) {
-                        alert('Standup completed.');
+                        alert(`Today's standup took ${data.duration}!`);
                         updateTimer();
                     } else {
                         fetchData();
@@ -203,6 +193,24 @@
                         .then(() => alert('Blockers list copied to clipboard'))
                         .catch(err => alert('Failed to copy: ' + err));
                 });
+        }
+
+        function saveParticipants() {
+            const names = document.getElementById('participants-list').value.split('\n');
+            fetch('/import_names', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ names })
+            }).then(() => fetchData());
+        }
+
+        function saveQuestions() {
+            const questions = document.getElementById('questions-list').value.split('\n');
+            fetch('/update_questions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ questions })
+            }).then(() => fetchData());
         }
 
         // Initialize data on page load

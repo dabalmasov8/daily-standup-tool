@@ -49,7 +49,9 @@ def mark_completed():
         standup_data['statuses'][current_index] = 'completed'
         standup_data['current_index'] += 1
         if standup_data['current_index'] >= len(standup_data['participants']):
-            return jsonify({'end': True})
+            duration = datetime.datetime.now() - standup_data['standup_start_time']
+            minutes, seconds = divmod(int(duration.total_seconds()), 60)
+            return jsonify({'end': True, 'duration': f'{minutes:02}:{seconds:02}'})
     return jsonify({'end': False})
 
 @app.route('/mark_has_blockers', methods=['POST'])
